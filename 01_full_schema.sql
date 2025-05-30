@@ -72,7 +72,8 @@ CREATE TABLE roles (
 
 INSERT INTO roles (role_id, name) VALUES
 (1, 'Admin'),
-(2, 'User')
+(2, 'User'),
+(3, 'Agent')
 ON CONFLICT (role_id) DO NOTHING;
 
 COMMENT ON TABLE roles IS 'Stores the different user roles';
