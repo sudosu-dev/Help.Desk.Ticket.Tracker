@@ -1,5 +1,5 @@
 -- =============================================================================
--- Help Desk Ticket System - Full Database Schema (Version 1.0)
+-- Help Desk Ticket System - Full Database Schema (Version 1.1)
 -- Last Updated: 2025-05-30
 --
 -- This script creates all necessary custom types, tables, relationships,
@@ -15,7 +15,7 @@
 -- =============================================================================
 
 -- Extension for trigram index warning
--- CREATE EXTENSION IF NOT EXISTS pg_trgm; --Uncomment 
+-- CREATE EXTENSION IF NOT EXISTS pg_trgm; --Comment out / Uncomment 
 
 -- Drop existing types if they exist
 DROP TYPE IF EXISTS ticket_status_enum CASCADE;
@@ -232,73 +232,73 @@ COMMENT ON TRIGGER trg_tickets_update_timestamp ON tickets IS 'Automatically upd
 
 
 -- users table indexes
-CREATE INDEX IF NOT EXISTS idx_users_role_id ON users(role_id);
-CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
-CREATE INDEX IF NOT EXISTS idx_users_department ON users(department);
+-- CREATE INDEX IF NOT EXISTS idx_users_role_id ON users(role_id);
+-- CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
+-- CREATE INDEX IF NOT EXISTS idx_users_department ON users(department);
 
 -- tickets table indexes
-CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets (status);
-CREATE INDEX IF NOT EXISTS idx_tickets_priority ON tickets (priority);
-CREATE INDEX IF NOT EXISTS idx_tickets_category ON tickets (category);
+-- CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets (status);
+-- CREATE INDEX IF NOT EXISTS idx_tickets_priority ON tickets (priority);
+-- CREATE INDEX IF NOT EXISTS idx_tickets_category ON tickets (category);
 
 -- Tickets table indexes - Foreign Keys (essential for JOINs)
-CREATE INDEX IF NOT EXISTS idx_tickets_requester_user_id ON tickets (requester_user_id);
-CREATE INDEX IF NOT EXISTS idx_tickets_assignee_user_id ON tickets (assignee_user_id);
+-- CREATE INDEX IF NOT EXISTS idx_tickets_requester_user_id ON tickets (requester_user_id);
+-- CREATE INDEX IF NOT EXISTS idx_tickets_assignee_user_id ON tickets (assignee_user_id);
 
 -- Tickets table indexes - Date/Time columns (reporting and sorting)
-CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets (created_at);
-CREATE INDEX IF NOT EXISTS idx_tickets_updated_at ON tickets (updated_at);
-CREATE INDEX IF NOT EXISTS idx_tickets_due_date ON tickets (due_date);
-CREATE INDEX IF NOT EXISTS idx_tickets_resolved_at ON tickets (resolved_at);
+-- CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets (created_at);
+-- CREATE INDEX IF NOT EXISTS idx_tickets_updated_at ON tickets (updated_at);
+-- CREATE INDEX IF NOT EXISTS idx_tickets_due_date ON tickets (due_date);
+-- CREATE INDEX IF NOT EXISTS idx_tickets_resolved_at ON tickets (resolved_at);
 
 -- Ticket attachments indexes
-CREATE INDEX IF NOT EXISTS idx_ticket_attachments_ticket_id ON ticket_attachments (ticket_id);
-CREATE INDEX IF NOT EXISTS idx_ticket_attachments_uploaded_at ON ticket_attachments (uploaded_at);
+-- CREATE INDEX IF NOT EXISTS idx_ticket_attachments_ticket_id ON ticket_attachments (ticket_id);
+-- CREATE INDEX IF NOT EXISTS idx_ticket_attachments_uploaded_at ON ticket_attachments (uploaded_at);
 
 -- -----------------------------------------------------------------------------
 -- Composite Indexes - Optimized Query Patterns
 -- -----------------------------------------------------------------------------
 
 -- Agent dashboard: "Show me my open/in progress tickets"
-CREATE INDEX IF NOT EXISTS idx_tickets_assignee_status ON tickets (assignee_user_id, status);
+-- CREATE INDEX IF NOT EXISTS idx_tickets_assignee_status ON tickets (assignee_user_id, status);
 
 -- Priority dashboard: "Show urgent tickets by status"
-CREATE INDEX IF NOT EXISTS idx_tickets_priority_status ON tickets (priority, status);
+-- CREATE INDEX IF NOT EXISTS idx_tickets_priority_status ON tickets (priority, status);
 
 -- Time-based status reporting: "Open tickets created this month"
-CREATE INDEX IF NOT EXISTS idx_tickets_status_created_at ON tickets (status, created_at);
+-- CREATE INDEX IF NOT EXISTS idx_tickets_status_created_at ON tickets (status, created_at);
 
 -- Department reporting: "Hardware issues by status"
-CREATE INDEX IF NOT EXISTS idx_tickets_category_status ON tickets (category, status);
+-- CREATE INDEX IF NOT EXISTS idx_tickets_category_status ON tickets (category, status);
 
 -- SLA monitoring: "Overdue tickets by priority"
-CREATE INDEX IF NOT EXISTS idx_tickets_due_date_priority ON tickets (due_date, priority);
+-- CREATE INDEX IF NOT EXISTS idx_tickets_due_date_priority ON tickets (due_date, priority);
 
 -- Resolution time analysis: "Resolved tickets with times"
-CREATE INDEX IF NOT EXISTS idx_tickets_resolved_at_created_at ON tickets (resolved_at, created_at) 
-WHERE resolved_at IS NOT NULL;
+-- CREATE INDEX IF NOT EXISTS idx_tickets_resolved_at_created_at ON tickets (resolved_at, created_at) 
+-- WHERE resolved_at IS NOT NULL;
 
 -- -----------------------------------------------------------------------------
 -- Specialized Indexes
 -- -----------------------------------------------------------------------------
 
 -- Partial index for unassigned tickets (common dashboard view)
-CREATE INDEX IF NOT EXISTS idx_tickets_unassigned ON tickets (created_at, priority) 
-WHERE assignee_user_id IS NULL;
+-- CREATE INDEX IF NOT EXISTS idx_tickets_unassigned ON tickets (created_at, priority) 
+-- WHERE assignee_user_id IS NULL;
 
 -- Partial index for overdue tickets (critical monitoring)  
-CREATE INDEX IF NOT EXISTS idx_tickets_overdue ON tickets (due_date, priority) 
-WHERE due_date < CURRENT_DATE AND status NOT IN ('Resolved', 'Closed');
+-- CREATE INDEX IF NOT EXISTS idx_tickets_overdue ON tickets (due_date, priority) 
+-- WHERE due_date < CURRENT_DATE AND status NOT IN ('Resolved', 'Closed');
 
 -- Text search on subject (basic search functionality)
-CREATE INDEX IF NOT EXISTS idx_tickets_subject_trgm ON tickets USING gin (subject gin_trgm_ops);
+-- CREATE INDEX IF NOT EXISTS idx_tickets_subject_trgm ON tickets USING gin (subject gin_trgm_ops);
 -- Note: Requires CREATE EXTENSION pg_trgm; for trigram similarity
 
 -- Comments explaining index strategy
-COMMENT ON INDEX idx_tickets_assignee_status IS 'Optimizes agent dashboard queries for assigned tickets by status';
-COMMENT ON INDEX idx_tickets_priority_status IS 'Optimizes urgent/high priority ticket filtering and reporting';
-COMMENT ON INDEX idx_tickets_unassigned IS 'Partial index for unassigned ticket queue, filtered to reduce index size';
-COMMENT ON INDEX idx_tickets_overdue IS 'Partial index for overdue ticket monitoring';
+-- COMMENT ON INDEX idx_tickets_assignee_status IS 'Optimizes agent dashboard queries for assigned tickets by status';
+-- COMMENT ON INDEX idx_tickets_priority_status IS 'Optimizes urgent/high priority ticket filtering and reporting';
+-- COMMENT ON INDEX idx_tickets_unassigned IS 'Partial index for unassigned ticket queue, filtered to reduce index size';
+-- COMMENT ON INDEX idx_tickets_overdue IS 'Partial index for overdue ticket monitoring';
 
 -- =============================================================================
 -- End of Schema Script
