@@ -21,6 +21,7 @@
 DROP TYPE IF EXISTS ticket_status_enum CASCADE;
 DROP TYPE IF EXISTS ticket_priority_enum CASCADE;
 DROP TYPE IF EXISTS ticket_category_enum CASCADE;
+DROP TYPE IF EXISTS kb_article_status_enum CASCADE;
 
 CREATE TYPE ticket_status_enum AS ENUM (
     'Open',
@@ -50,6 +51,13 @@ CREATE TYPE ticket_category_enum AS ENUM (
     'General IT Support'
 );
 COMMENT ON TYPE ticket_category_enum IS 'Defines the allowed categories for classifying a ticket';
+
+CREATE TYPE kb_article_status_enum AS ENUM (
+    'Draft',
+    'Published',
+    'Archived'
+)
+COMMENT ON TYPE kb_article_status_enum IS 'Defines the workflow statuses for a knowledge base article';
 
 -- =============================================================================
 -- SECTION 2: Table Definitions
@@ -138,6 +146,10 @@ CREATE TABLE tickets (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     due_date DATE NULL,
     resolved_at TIMESTAMPTZ NULL,
+    first_response_due_at TIMESTAMPTZ NULL,
+    resolution_due_at TIMESTAMPTZ NULL,
+    first_responded_at TIMESTAMPTZ NULL,
+    sla_status VARCHAR(50) null,
     CONSTRAINT fk_ticket_requester FOREIGN KEY(requester_user_id) REFERENCES users(user_id)
         ON DELETE RESTRICT -- Prevent deleting a user if they have submitted tickets
         ON UPDATE CASCADE,
@@ -158,6 +170,10 @@ COMMENT ON COLUMN tickets.created_at IS 'Timestamp (with time zone) indicating w
 COMMENT ON COLUMN tickets.updated_at IS 'Timestamp (with time zone) indicating when the ticket was last updated (automatically managed by a trigger)';
 COMMENT ON COLUMN tickets.due_date IS 'Optional target date by which the ticket should ideally be resolved';
 COMMENT ON COLUMN tickets.resolved_at IS 'Timestamp (with time zone) indicating when the ticket was marked as resolved. NULL if not yet resolved';
+COMMENT ON COLUMN tickets.first_response_due_at IS 'Calculated target time for the first agent response based on SLA policy (V1)';
+COMMENT ON COLUMN tickets.resolution_due_at IS 'Calculated target time for ticket resolution based on SLA policy (V1)';
+COMMENT ON COLUMN tickets.first_responded_at IS 'Actual timestamp of the first public response made by an agent (V1)';
+COMMENT ON COLUMN tickets.sla_status IS 'Simple status indicating if SLA targets (TTFR/TTR) are met, breached, or pending (V1)';
 
 -- =============================================================================
 -- Table: ticket_comments
@@ -227,6 +243,58 @@ COMMENT ON COLUMN ticket_attachments.file_size IS 'Size of the uploaded file in 
 COMMENT ON COLUMN ticket_attachments.uploaded_at IS 'Timestamp indicating when the file was uploaded';
 
 -- =============================================================================
+-- Table: kb_categories
+-- Stores categories for organizing knowledge base articles
+-- =============================================================================
+DROP TABLE IF EXISTS kb_categories CASCADE;
+CREATE TABLE kb_categories (
+    kb_kategory_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT NULL
+);
+
+COMMENT ON TABLE kb_categories IS 'Stores categories for organizing knowledge base articles';
+COMMENT ON COLUMN kb_categories.kb_category_id IS 'Unique auto-incrementing identifier for the category';
+COMMENT ON COLUMN kb_categories.name IS 'The unique name of the category';
+COMMENT ON COLUMN kb_categories.description IS 'Optional description for the category';
+
+-- =============================================================================
+-- Table: kb_articles
+-- Stores knowledge base articles
+-- =============================================================================
+DROP TABLE IF EXISTS kb_articles CASCADE;
+CREATE TABLE kb_articles (
+    article_id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,  -- Store as markdown
+    kb_category_id INTEGER NULL,
+    author_user_id INTEGER NOT NULL, -- User (Agent/Admin) who authored/owns the article
+    status kb_article_status_enum NOT NULL DEFAULT 'Drafts',
+    keywords TEXT NULL, -- Comma seperated keywords or tags for search
+    view_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_kb_article_category FOREIGN KEY(kb_category_id) REFERENCES kb_categories(kb_category_id)
+        ON DELETE SET NULL, -- If category is deleted, article becomes uncategorized
+    CONSTRAINT fk_kb_article_author FOREIGN KEY(author_user_id) REFERENCES users(user_id)
+        ON DELETE RESTRICT -- Prevent deleting a user if they authored articles
+        ON UPDATE CASCADE
+);
+
+COMMENT ON TABLE kb_articles IS 'Stores knowledge base articles for self-service and agent assistance';
+COMMENT ON COLUMN kb_articles.article_id IS 'Unique auto-incrementing identifier for the article';
+COMMENT ON COLUMN kb_articles.title IS 'The title of the knowledge base article';
+COMMENT ON COLUMN kb_articles.content IS 'The main content of the article, Markdown recommended';
+COMMENT ON COLUMN kb_articles.kb_category_id IS 'Foreign key linking to the kb_categories table';
+COMMENT ON COLUMN kb_articles.author_user_id IS 'Foreign key linking to the users table, indicating the article author';
+COMMENT ON COLUMN kb_articles.status IS 'Current status of the article (Draft, Published, Archived)';
+COMMENT ON COLUMN kb_articles.keywords IS 'Comma-separated keywords for simple search functionality';
+COMMENT ON COLUMN kb_articles.view_count IS 'Counter for how many times the article has been viewed';
+COMMENT ON COLUMN kb_articles.created_at IS 'Timestamp of when the article was created';
+COMMENT ON COLUMN kb_articles.updated_at IS 'Timestamp of when the article was last updated (should be auto-managed by a trigger)';
+
+-- =============================================================================
 -- SECTION 3: Automation - Triggers for 'updated_at' Timestamps
 -- This function and associated triggers ensure that the 'updated_at'
 -- column is automatically updated whenever a row in the specified
@@ -259,6 +327,13 @@ BEFORE UPDATE ON tickets
 FOR EACH ROW
 EXECUTE FUNCTION fn_update_timestamp();
 COMMENT ON TRIGGER trg_tickets_update_timestamp ON tickets IS 'Automatically updates tickets.updated_at on row modification.';
+
+-- Trigger for 'kb_articles' table
+CREATE TRIGGER trg_kb_articles_timestamp
+BEFORE UPDATE ON kb_articles
+FOR EACH ROW
+EXECUTE FUNCTION fn_update_timestamp();
+COMMENT ON TRIGGER trg_kb_articles_timestamp ON kb_articles IS 'Automatically upadtes kb_articles.updated_at on row modification';
 
 -- =============================================================================
 -- SECTION 4: Performance Indexes
