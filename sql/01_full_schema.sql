@@ -56,7 +56,7 @@ CREATE TYPE kb_article_status_enum AS ENUM (
     'Draft',
     'Published',
     'Archived'
-)
+);
 COMMENT ON TYPE kb_article_status_enum IS 'Defines the workflow statuses for a knowledge base article';
 
 -- =============================================================================
@@ -248,7 +248,7 @@ COMMENT ON COLUMN ticket_attachments.uploaded_at IS 'Timestamp indicating when t
 -- =============================================================================
 DROP TABLE IF EXISTS kb_categories CASCADE;
 CREATE TABLE kb_categories (
-    kb_kategory_id SERIAL PRIMARY KEY,
+    kb_category_id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     description TEXT NULL
 );
@@ -269,8 +269,8 @@ CREATE TABLE kb_articles (
     content TEXT NOT NULL,  -- Store as markdown
     kb_category_id INTEGER NULL,
     author_user_id INTEGER NOT NULL, -- User (Agent/Admin) who authored/owns the article
-    status kb_article_status_enum NOT NULL DEFAULT 'Drafts',
-    keywords TEXT NULL, -- Comma seperated keywords or tags for search
+    status kb_article_status_enum NOT NULL DEFAULT 'Draft',
+    keywords TEXT NULL, -- Comma separated keywords or tags for search
     view_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -333,7 +333,7 @@ CREATE TRIGGER trg_kb_articles_timestamp
 BEFORE UPDATE ON kb_articles
 FOR EACH ROW
 EXECUTE FUNCTION fn_update_timestamp();
-COMMENT ON TRIGGER trg_kb_articles_timestamp ON kb_articles IS 'Automatically upadtes kb_articles.updated_at on row modification';
+COMMENT ON TRIGGER trg_kb_articles_timestamp ON kb_articles IS 'Automatically updates kb_articles.updated_at on row modification';
 
 -- =============================================================================
 -- SECTION 4: Performance Indexes
