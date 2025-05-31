@@ -1,0 +1,81 @@
+# Node.js / npm / yarn
+node_modules/
+npm-debug.log*
+# yarn-debug.log*
+# yarn-error.log*
+# package-lock.json # Optional: Some teams commit this, others don't. If you're solo, committing it is fine.
+                  # If you use npm, npm-shrinkwrap.json or package-lock.json (for npm 5+)
+# pnpm-lock.yaml    # If using pnpm
+.vite/
+
+# TypeScript
+*.tsbuildinfo
+# Transpiled JavaScript (if your tsconfig.json outputs to a specific directory like 'dist' or 'build')
+# Adjust these if your output directories are different
+dist/
+build/
+out/
+lib/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE / Editor specific files
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/          # JetBrains IDEs (WebStorm, IntelliJ)
+*.iml           # JetBrains
+*.ipr           # JetBrains
+*.iws           # JetBrains
+.project        # Eclipse
+.classpath      # Eclipse
+.settings/      # Eclipse
+
+# Operating System generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Build outputs / Bundles (common for React)
+build/
+dist/
+.next/          # If using Next.js for React frontend
+.out/           # If using Next.js static export
+.svelte-kit/    # If using SvelteKit
+.vercel/
+
+# Test runner coverage reports
+coverage/
+.nyc_output/
+
+# Miscellaneous
+.temp/
+*.swp # Swap files from vim/neovim
+*.swo # Swap files from vim/neovim
+
+# Tailwind CSS (if it generates specific cache or output files not in typical build dirs)
+# Usually covered by node_modules or build/dist, but good to be aware.
+
+# PostgreSQL (if you ever store local db dumps or logs not meant for repo)
+# *.sql # Be careful with this one if you DO want to commit your schema/seed scripts
+# *.dump
+# pg_log/
