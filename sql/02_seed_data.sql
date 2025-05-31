@@ -184,3 +184,43 @@ INSERT INTO ticket_comments (
     5, 5, 'Thanks, the password reset worked perfectly!',
     FALSE, NULL, (SELECT resolved_at FROM tickets WHERE ticket_id = 5) + INTERVAL '1 hour', NULL, NULL
 );
+
+-- =============================================================================
+-- SECTION 5: Seed Knowledge Base Categories
+-- =============================================================================
+INSERT INTO kb_categories (name, description) VALUES
+('Account Issues', 'Help with login, password resets, account settings, and user profiles.'),
+('Software Guides', 'How-to guides, configuration steps, and troubleshooting for common software applications.'),
+('Hardware Troubleshooting', 'Common hardware problems, peripheral issues, and basic solutions.');
+
+-- =============================================================================
+-- SECTION 6: Seed Knowledge Base Articles
+-- (Assumes kb_category_ids 1, 2, 3 correspond to 'Account Issues', 'Software Guides', 'Hardware Troubleshooting')
+-- =============================================================================
+INSERT INTO kb_articles (
+    title, content, kb_category_id, author_user_id, status, keywords, view_count, created_at, updated_at
+) VALUES
+(
+    'How to Reset Your Password',
+    '## Steps to Reset Your Password\n\n1. Navigate to the login page.\n2. Click on the "Forgot Password?" link.\n3. Enter your registered email address.\n4. Follow the instructions sent to your email to set a new password.\n\nIf you still face issues, please contact support by creating a new ticket.',
+    1, 1, 'Published', 'password, reset, forgot password, login, account access', 25,
+    NOW() - INTERVAL '5 days', NOW() - INTERVAL '2 days'
+),
+(
+    'Outlook Configuration for New Employees',
+    '## Configuring Outlook Email\n\nWelcome! Here’s how to set up your company email on Outlook:\n\n1.  **Open Outlook.**\n2.  Go to **File > Add Account**.\n3.  Enter your **email address** (e.g., your.name@company.example.com).\n4.  Click **Connect**.\n5.  Outlook may automatically find your settings. If prompted for a password, enter your network password.\n6.  If manual setup is required, select **Microsoft 365** or **Exchange** type.\n\nContact IT if you encounter any issues.',
+    2, 2, 'Published', 'outlook, email, configuration, setup, new employee, mail', 15,
+    NOW() - INTERVAL '3 days', NOW() - INTERVAL '1 day'
+),
+(
+    'Troubleshooting Printer Error E505',
+    '## Investigating Printer Error E505\n\nThis article is a draft for common steps to resolve printer error E505.\n\n* Check for paper jams.\n* Restart the printer.\n* Ensure printer drivers are up to date.\n\n(More details and specific models to be added by support team).',
+    3, 2, 'Draft', 'printer, E505, hardware, error, troubleshoot, paper jam', 0,
+    NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 day'
+),
+(
+    'Understanding Your User Profile Settings',
+    '## Your User Profile\n\nThis guide explains the different settings available in your user profile within the Help Desk portal.\n\n* **Personal Information:** Update your name and phone number.\n* **Password Changes:** Securely change your login password.\n* **Notification Preferences (Future Feature):** Manage how you receive updates.\n\nTo access your profile, click on your name in the top right corner and select "Profile".',
+    NULL, 1, 'Published', 'profile, settings, account, user preferences, details', 10,
+    NOW() - INTERVAL '7 days', NOW() - INTERVAL '7 days'
+);
