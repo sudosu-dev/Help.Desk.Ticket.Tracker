@@ -159,6 +159,41 @@ COMMENT ON COLUMN tickets.updated_at IS 'Timestamp (with time zone) indicating w
 COMMENT ON COLUMN tickets.due_date IS 'Optional target date by which the ticket should ideally be resolved';
 COMMENT ON COLUMN tickets.resolved_at IS 'Timestamp (with time zone) indicating when the ticket was marked as resolved. NULL if not yet resolved';
 
+-- =============================================================================
+-- Table: ticket_comments
+-- Stores comments and notes related to tickets
+-- =============================================================================
+DROP TABLE IF EXISTS ticket_comments CASCADE;
+CREATE TABLE ticket_comments (
+    comment_id SERIAL PRIMARY KEY,
+    ticket_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL, -- User who wrote the comment
+    comment_text TEXT NOT NULL,
+    is_internal BOOLEAN NOT NULL DEFAULT FALSE, -- FALSE for public, TRUE for internal agent/admin notes
+    parent_comment_id INTEGER NULL, -- For threading replies to other comments
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NULL, -- Timestamp of when the comment was last edited
+    first_viewed_by_agent_at TIMESTAMPTZ NULL, -- For edit/delete rule: when an agent first saw this comment
+
+    CONSTRAINT fk_comment_ticket FOREIGN KEY(ticket_id) REFERENCES tickets(ticket_id)
+        ON DELETE CASCADE, -- If a ticket is deleted, its comments are also deleted
+    CONSTRAINT fk_comment_user FOREIGN KEY(user_id) REFERENCES users(user_id)
+        ON DELETE RESTRICT, -- Prevent deleting a user if they have made comments
+    CONSTRAINT fk_comment_parent FOREIGN KEY(parent_comment_id) REFERENCES ticket_comments(comment_id)
+        ON DELETE SET NULL -- If a parent comment is deleted, its replies become top-level
+);
+
+COMMENT ON TABLE ticket_comments IS 'Stores comments, replies, and internal notes associated with tickets';
+COMMENT ON COLUMN ticket_comments.comment_id IS 'Unique auto-incrementing identifier for the comment';
+COMMENT ON COLUMN ticket_comments.ticket_id IS 'Foreign key referencing tickets.ticket_id';
+COMMENT ON COLUMN ticket_comments.user_id IS 'Foreign key referencing users.user_id, indicating who wrote the comment';
+COMMENT ON COLUMN ticket_comments.comment_text IS 'The actual content of the comment or note';
+COMMENT ON COLUMN ticket_comments.is_internal IS 'TRUE if the comment is an internal note (agents/admins only), FALSE if public (visible to requester)';
+COMMENT ON COLUMN ticket_comments.parent_comment_id IS 'If this is a reply, references the comment_id of the parent comment';
+COMMENT ON COLUMN ticket_comments.created_at IS 'Timestamp of when the comment was created';
+COMMENT ON COLUMN ticket_comments.updated_at IS 'Timestamp of when the comment was last edited';
+COMMENT ON COLUMN ticket_comments.first_viewed_by_agent_at IS 'Timestamp when an agent first viewed a non-internal comment, relevant for edit/delete permissions';
+
 -- -----------------------------------------------------------------------------
 -- Table: ticket_attachments
 -- Stores information about files attached to tickets.
@@ -175,7 +210,7 @@ CREATE TABLE ticket_attachments (
     uploaded_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_attachment_ticket FOREIGN KEY(ticket_id) REFERENCES tickets(ticket_id)
         ON DELETE CASCADE
-        ON UPDATE CASCADE
+        ON UPDATE CASCADE,
     CONSTRAINT fk_attachment_uploader FOREIGN KEY(uploader_user_id) REFERENCES users(user_id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE
@@ -184,6 +219,7 @@ CREATE TABLE ticket_attachments (
 COMMENT ON TABLE ticket_attachments IS 'Stores references to files attached to tickets, with links to cloud storage';
 COMMENT ON COLUMN ticket_attachments.attachment_id IS 'Unique auto-incrementing identifier for the attachment';
 COMMENT ON COLUMN ticket_attachments.ticket_id IS 'Foreign key referencing tickets.ticket_id, linking the attachment to a specific ticket';
+COMMENT ON COLUMN ticket_attachments.uploader_user_id IS 'Foreign key referencing users.user_id, linking the attachment to a specific user';
 COMMENT ON COLUMN ticket_attachments.file_url IS 'URL to the actual file stored in cloud storage';
 COMMENT ON COLUMN ticket_attachments.file_name IS 'Original name of the uploaded file (optional)';
 COMMENT ON COLUMN ticket_attachments.file_type IS 'MIME type of the file (e.g., ''image/jpeg'', ''application/pdf'') (optional)';
