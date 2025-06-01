@@ -1,4 +1,29 @@
-// backend/src/components/auth/auth.service.ts
+/**
+ * Authentication Service Layer
+ *
+ * Contains the core business logic for authentication operations, including
+ * database interactions, password hashing, and user management. This service
+ * layer abstracts database operations from the controller layer and handles
+ * the core authentication functionality.
+ *
+ * Current functionality:
+ * - User registration with duplicate checking
+ * - Password hashing using bcrypt with configurable salt rounds
+ * - Database operations for user creation and validation
+ * - Type-safe interfaces for registration data and user responses
+ *
+ * Security features:
+ * - Prevents duplicate usernames and emails
+ * - Secure password hashing with bcrypt
+ * - Returns sanitized user data (excludes password hash)
+ * - Comprehensive error handling for database operations
+ *
+ * Future expansions will include login verification, password reset,
+ * token generation/validation, and user profile updates.
+ *
+ * @file backend/src/components/auth/auth.service.ts
+ */
+
 import pool from '../../core/db';
 import bcrypt from 'bcrypt';
 
