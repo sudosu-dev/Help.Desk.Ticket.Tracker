@@ -34,11 +34,7 @@
 
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import apiRouterV1 from './api';
-
-// Load environment variables from .env file
-dotenv.config();
 
 const app: Application = express();
 

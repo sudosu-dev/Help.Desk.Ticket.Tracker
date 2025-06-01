@@ -24,6 +24,11 @@
  * @file backend/src/server.ts
  */
 
+// db/index.ts was calling .env before app.ts and causing
+// errors so moved dotenv import and config call to here
+import dotenv from 'dotenv';
+dotenv.config();
+
 import app from './app';
 import http from 'http';
 import pool from './core/db';
