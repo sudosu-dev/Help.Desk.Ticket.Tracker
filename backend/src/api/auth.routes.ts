@@ -32,20 +32,14 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { handleUserRegistration } from '../components/auth/auth.controller';
+// import * as AuthController from '../components/auth/auth.controller';
 
 const router = Router();
 
-// Placeholder for user registration
+// User Registration Route
 // POST /api/v1/auth/register
-router.post('/register', (req: Request, res: Response) => {
-  // TODO: Implement user registration logic (controller/service)
-  // For now, just send back the request body as a test or a placeholder message
-  console.log('Received body for /register', req.body);
-  res.status(201).json({
-    message: 'Auth register endpoint placeholder reached',
-    receivedBody: req.body,
-  });
-});
+router.post('/register', handleUserRegistration);
 
 // Placeholder for user login
 // POST /api/v1/auth/login
@@ -53,7 +47,7 @@ router.post('/login', (req: Request, res: Response) => {
   // TODO: Implement user login logic (controller/service)
   console.log('Received body for /login:', req.body);
   res.status(200).json({
-    message: 'Auth login endpoint placeholder reached',
+    message: 'Auth login endpoint placeholder reached.',
     receivedBody: req.body,
   });
 });

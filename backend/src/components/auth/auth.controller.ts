@@ -16,11 +16,11 @@
  * @file backend/src/components/auth/auth.controller.ts
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import * as authService from './auth.service';
 import { UserRegistrationData } from './auth.service';
 
-export const handleUserRegistration = async (
+export const handleUserRegistration: RequestHandler = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -53,18 +53,21 @@ export const handleUserRegistration = async (
       !phone_number
     ) {
       // Later, throw new ApiError(400, 'All fields (username, email, password, first_name, last_name, phone_number) are required');
-      return res.status(400).json({
+      res.status(400).json({
         message:
           'All fields (username, email, password, first_name, last_name, phone_number) are required.',
       });
+      return;
     }
 
     if (password.length < 8) {
       // Later, throw new ApiError(400, 'Password must be at least 8 characters long');
-      return res
+      res
         .status(400)
         .json({ message: 'Password must be at least 8 characters long.' });
+      return;
     }
+
     // Add email format validation, etc...
 
     const registrationData: UserRegistrationData = {
@@ -92,15 +95,17 @@ export const handleUserRegistration = async (
     if (error instanceof Error) {
       console.error('[AuthController - Register] Error:', error.message);
       if (error.message === 'Username or email already exists.') {
-        return res.status(409).json({ message: error.message }); // 409 conflict
+        res.status(409).json({ message: error.message }); // 409 conflict
+      } else {
+        // For other errors thrown by the service or unexpected errors
+        res.status(500).json({
+          message: 'User registration failed due to an internal error.',
+        });
       }
-      // For other errors thrown by the service or unexpected errors
-      return res.status(500).json({
-        message: 'User registration failed due to an internal error.',
-      });
+    } else {
+      // Fallback for unknown error types
+      res.status(500).json({ message: 'An unexpected error occured.' });
     }
-    // Fallback for unknown error types
-    return res.status(500).json({ message: 'An unexpected error occured.' });
   }
 
   // Will add login controller function here later
