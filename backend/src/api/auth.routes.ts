@@ -1,38 +1,10 @@
-/**
- * Authentication Routes
- *
- * Defines HTTP routes and endpoints for all authentication-related operations.
- * This router handles the mapping between HTTP requests and authentication
- * controllers, providing RESTful endpoints for user authentication workflows.
- *
- * Current endpoints:
- * - POST /api/v1/auth/register - User registration (placeholder implementation)
- * - POST /api/v1/auth/login - User login (placeholder implementation)
- *
- * Development stage:
- * - Currently contains placeholder implementations for testing API connectivity
- * - Logs incoming request bodies for debugging during development
- * - Returns mock responses to verify route functionality
- *
- * Planned endpoints:
- * - POST /logout - User logout and session termination
- * - POST /refresh-token - JWT token refresh
- * - POST /forgot-password - Password reset request
- * - POST /reset-password - Password reset confirmation
- *
- * Future implementation:
- * - Will integrate with auth.controller.ts for business logic handling
- * - Add request validation middleware for input sanitization
- * - Implement proper error handling and response formatting
- * - Add rate limiting for security (login attempts, password resets)
- *
- * This router is mounted under '/auth' prefix in the main API router.
- *
- * @file backend/src/api/auth.routes.ts
- */
-
 import { Router, Request, Response } from 'express';
-import { handleUserRegistration } from '../components/auth/auth.controller';
+import {
+  handleUserRegistration,
+  handleUserLogin,
+  handleuserLogout,
+} from '../components/auth/auth.controller';
+
 // import * as AuthController from '../components/auth/auth.controller';
 
 const router = Router();
@@ -41,17 +13,14 @@ const router = Router();
 // POST /api/v1/auth/register
 router.post('/register', handleUserRegistration);
 
-// Placeholder for user login
+// User Login Route
 // POST /api/v1/auth/login
-router.post('/login', (req: Request, res: Response) => {
-  // TODO: Implement user login logic (controller/service)
-  console.log('Received body for /login:', req.body);
-  res.status(200).json({
-    message: 'Auth login endpoint placeholder reached.',
-    receivedBody: req.body,
-  });
-});
+router.post('/login', handleUserLogin);
 
-// TODO: Add other routes later (/logout, /refresh-token, /forgot-password, /reset-password)
+// User Logout Route
+// POST /api/v1/auth/logout
+router.post('/logout', handleuserLogout);
+
+// TODO: Add other routes later (/refresh-token, /forgot-password, /reset-password)
 
 export default router;

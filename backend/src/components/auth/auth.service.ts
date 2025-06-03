@@ -1,32 +1,8 @@
-/**
- * Authentication Service Layer
- *
- * Contains the core business logic for authentication operations, including
- * database interactions, password hashing, and user management. This service
- * layer abstracts database operations from the controller layer and handles
- * the core authentication functionality.
- *
- * Current functionality:
- * - User registration with duplicate checking
- * - Password hashing using bcrypt with configurable salt rounds
- * - Database operations for user creation and validation
- * - Type-safe interfaces for registration data and user responses
- *
- * Security features:
- * - Prevents duplicate usernames and emails
- * - Secure password hashing with bcrypt
- * - Returns sanitized user data (excludes password hash)
- * - Comprehensive error handling for database operations
- *
- * Future expansions will include login verification, password reset,
- * token generation/validation, and user profile updates.
- *
- * @file backend/src/components/auth/auth.service.ts
- */
-
 import pool from '../../core/db';
 import bcrypt from 'bcrypt';
-
+import jwt from 'jsonwebtoken';
+import { getJwtExpiresInSeconds } from '../../core/utils/jwt.utils';
+import crypto from 'crypto';
 // Interface for the data expected for user registration
 export interface UserRegistrationData {
   username: string;
@@ -51,6 +27,92 @@ export interface RegisteredUser {
   updated_at: Date;
 }
 
+// Interface for the data expected for user login
+export interface UserLoginData {
+  emailOrUsername: string;
+  password_plaintext: string;
+}
+
+// Interface for the login response
+export interface LoginSuccessResponse {
+  token: string;
+  user: {
+    user_id: number;
+    username: string;
+    email: string;
+    role_id: number;
+  };
+}
+
+// ---- LOGIN ----
+
+export const loginUser = async (
+  loginData: UserLoginData
+): Promise<LoginSuccessResponse> => {
+  const { emailOrUsername, password_plaintext } = loginData;
+
+  // Normalize emailOrUsername
+  const NormalizedEmailOrUsername = emailOrUsername.trim().toLocaleLowerCase();
+
+  // Find the user by email or username
+  const userQueryResult = await pool.query(
+    'SELECT user_id, username, email, role_id, password_hash, is_active FROM users WHERE email = $1 OR username = $1',
+    [NormalizedEmailOrUsername]
+  );
+
+  if (userQueryResult.rows.length === 0) {
+    throw new Error('Invalid email/username or password.');
+  }
+
+  const user = userQueryResult.rows[0];
+
+  // Check if user is active
+  if (!user.is_active) {
+    throw new Error('Account is inactive. Please contact support.');
+  }
+
+  // Compare the provided password with the stored hash
+  const passwordMatches = await bcrypt.compare(
+    password_plaintext,
+    user.password_hash
+  );
+
+  if (!passwordMatches) {
+    throw new Error('Invalid email/username or password.');
+  }
+
+  // Generate JWT
+  const jwtSecret: string = process.env.JWT_SECRET!;
+
+  if (!jwtSecret) {
+    console.error('JWT_SECRET is not defined in environment variables.');
+    throw new Error('Authentication configuration error.');
+  }
+
+  const payload = {
+    userId: user.user_id,
+    roleId: user.role_id,
+  };
+
+  const expiresInSeconds = getJwtExpiresInSeconds();
+
+  const token = jwt.sign(payload, jwtSecret!, {
+    expiresIn: expiresInSeconds,
+  });
+
+  return {
+    token,
+    user: {
+      user_id: user.user_id,
+      username: user.username,
+      email: user.email,
+      role_id: user.role_id,
+    },
+  };
+};
+
+// ---- USER REGISTRATION ----
+
 export const registerNewUser = async (
   userData: UserRegistrationData
 ): Promise<RegisteredUser> => {
@@ -63,10 +125,14 @@ export const registerNewUser = async (
     phone_number,
   } = userData;
 
-  // 1. Check if user already exists (by username or email)
+  // Normalize username and email
+  const normalizedUsername = username.trim().toLocaleLowerCase();
+  const normalizedEmail = email.trim().toLocaleLowerCase();
+
+  // Check if user already exists
   const existingUserResult = await pool.query(
     'SELECT user_id FROM users WHERE username = $1 OR email = $2',
-    [username, email]
+    [normalizedUsername, normalizedEmail]
   );
 
   if (existingUserResult.rows.length > 0) {
@@ -85,8 +151,8 @@ export const registerNewUser = async (
         RETURNING user_id, username, email, first_name, last_name, phone_number, role_id, is_active, created_at, updated_at;
     `;
   const values = [
-    username,
-    email,
+    normalizedUsername,
+    normalizedEmail,
     password_hash,
     first_name,
     last_name,
@@ -103,5 +169,83 @@ export const registerNewUser = async (
   } catch (error) {
     console.error('Error during registration:', error);
     throw new Error('Could not register user due to a database error.');
+  }
+};
+
+// ---- LOGOUT ----
+
+/**
+ * Handles backend logic for user logout.
+ * For stateless JWTs where logout is primarily client-side (token deletion),
+ * this function might be minimal or used for logging logout activity in the future.
+ * For V1, it simply acknowledges the request.
+ * @returns Promise<void>
+ */
+export const logoutUser = async (): Promise<{ message: string }> => {
+  return { message: 'Logout process initiated on server.' };
+};
+
+// ---- REQUEST PASSWORD ----
+
+/**
+ * Handles a request to reset a user's password.
+ * Generates a reset token, stores its hash, and returns the plaintext token.
+ * In a full implementation, this plaintext token would be used to send a reset email.
+ * @param email The email address of the user requesting the password reset.
+ * @returns Promise<string | null> The plaintext reset token if a user was found, otherwise null.
+ */
+
+export const requestPasswordReset = async (
+  email: string
+): Promise<string | null> => {
+  // Find the user by email
+  const userQueryResult = await pool.query(
+    'SELECT user_id FROM users WHERE email = $1 AND is_active = TRUE',
+    [email.trim().toLowerCase()]
+  );
+
+  if (userQueryResult.rows.length === 0) {
+    console.log`[AuthService-RequestReset] No active user found for email: ${email}`;
+    return null;
+  }
+
+  const userId = userQueryResult.rows[0].user_id;
+
+  // Generate a secure plaintext token
+  const plaintextToken = crypto.randomBytes(32).toString('hex');
+
+  // Hash the token before storing in database
+  const tokenHash = crypto
+    .createHash('sha256')
+    .update(plaintextToken)
+    .digest('hex');
+
+  // Set token expiration
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+  // Delete any previous, unexpired reset tokens for this user
+  try {
+    await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [
+      userId,
+    ]);
+
+    // Store the hashed token, user_id, and expiration date
+    await pool.query(
+      'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+      [userId, tokenHash, expiresAt]
+    );
+
+    console.log(
+      `[AuthService-RequestReset] Password reset token generated and stored for user: ${userId}`
+    );
+
+    // Return the plaintext token to be used in the reset email
+    return plaintextToken;
+  } catch (error) {
+    console.error(
+      '[AuthService-RequestReset] Error during token operation:',
+      error
+    );
+    throw new Error('Could not process password reset due to a server error.');
   }
 };

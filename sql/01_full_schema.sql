@@ -243,6 +243,29 @@ COMMENT ON COLUMN ticket_attachments.file_size IS 'Size of the uploaded file in 
 COMMENT ON COLUMN ticket_attachments.uploaded_at IS 'Timestamp indicating when the file was uploaded';
 
 -- =============================================================================
+-- Table: password_reset_tokens
+-- Stores tokens for user password reset requests
+-- =============================================================================
+DROP TABLE IF EXISTS password_reset_tokens CASCADE;
+CREATE TABLE password_reset_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    token_hash VARCHAR(255) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_password_reset_user FOREIGN KEY(user_id) REFERENCES users(user_id)
+        ON DELETE CASCADE
+);
+
+COMMENT ON TABLE password_reset_tokens IS 'Stores tokens for user password reset requests, linking them to users and defining an expiry time.';
+COMMENT ON COLUMN password_reset_tokens.id IS 'Unique auto-incrementing identifier for the token record.';
+COMMENT ON COLUMN password_reset_tokens.user_id IS 'Foreign key referencing the user who requested the reset.';
+COMMENT ON COLUMN password_reset_tokens.token_hash IS 'A secure hash of the password reset token sent to the user. The actual token is not stored.';
+COMMENT ON COLUMN password_reset_tokens.expires_at IS 'Timestamp indicating when this reset token will no longer be valid.';
+COMMENT ON COLUMN password_reset_tokens.created_at IS 'Timestamp indicating when the token record was created.';
+
+-- =============================================================================
 -- Table: kb_categories
 -- Stores categories for organizing knowledge base articles
 -- =============================================================================
