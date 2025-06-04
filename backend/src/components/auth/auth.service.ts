@@ -249,3 +249,83 @@ export const requestPasswordReset = async (
     throw new Error('Could not process password reset due to a server error.');
   }
 };
+
+// --- PASSWORD RESET ---
+
+export interface ResetPasswordData {
+  token: string;
+  newPassword_plaintext: string;
+}
+
+/**
+ * Resets a user's password using a valid reset token.
+ * @param resetData Contains the plaintext token and the new password.
+ * @returns Promise<void> Resolves if password reset is successful.
+ * @throws Error if token is invalid, expired, or if the password update fails.
+ */
+export const resetPassword = async (
+  resetData: ResetPasswordData
+): Promise<void> => {
+  const { token: plaintextToken, newPassword_plaintext } = resetData;
+
+  // Hash the incoming plaintext token to compare with the database
+  const incomingTokenHash = crypto
+    .createHash('sha256')
+    .update(plaintextToken)
+    .digest('hex');
+
+  // Find the token in the database and verify it's not expired
+  const tokenQueryResult = await pool.query(
+    'SELECT user_id, expires_at FROM password_reset_tokens WHERE token_hash = $1',
+    [incomingTokenHash]
+  );
+
+  if (tokenQueryResult.rows.length === 0) {
+    console.log(
+      `[AuthService - ResetPassword] Invalid or non-existent token hash provided.`
+    );
+    throw new Error('Invalid or expired password reset token.');
+  }
+
+  const tokenData = tokenQueryResult.rows[0];
+  const userId = tokenData.user_id;
+  const expiresAt = new Date(tokenData.expires_at);
+
+  if (expiresAt < new Date()) {
+    console.log(
+      `[AuthService - ResetPassword] Expired token provided for user_id: ${userId}.`
+    );
+    // delete the expired token
+    await pool.query(
+      'DELETE FROM password_reset_tokens WHERE token_hash = $1',
+      [incomingTokenHash]
+    );
+    throw new Error('Invalid or expired password reset token.');
+  }
+
+  // Hash the new password
+  const saltRounds = 10;
+  const newPasswordHash = await bcrypt.hash(newPassword_plaintext, saltRounds);
+
+  // Update the user's password in the users table
+  const updateUserPasswordResult = await pool.query(
+    'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2',
+    [newPasswordHash, userId]
+  );
+
+  if (updateUserPasswordResult.rowCount === 0) {
+    console.error(
+      `[AuthService - ResetPassword] Failed to update the password for user ${userId}. User might not exist or DB issue.`
+    );
+    throw new Error('Failed to update password.');
+  }
+
+  // Delete the used password reset token from the database
+  await pool.query('DELETE FROM password_reset_tokens WHERE token_hash = $1', [
+    incomingTokenHash,
+  ]);
+
+  console.log(
+    `[AuthService - ResetPassword] Password successfully reset for user ${userId}.`
+  );
+};

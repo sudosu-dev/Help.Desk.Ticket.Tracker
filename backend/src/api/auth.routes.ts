@@ -3,6 +3,8 @@ import {
   handleUserRegistration,
   handleUserLogin,
   handleuserLogout,
+  handleRequestPasswordReset,
+  handleResetPassword,
 } from '../components/auth/auth.controller';
 
 // import * as AuthController from '../components/auth/auth.controller';
@@ -21,6 +23,14 @@ router.post('/login', handleUserLogin);
 // POST /api/v1/auth/logout
 router.post('/logout', handleuserLogout);
 
-// TODO: Add other routes later (/refresh-token, /forgot-password, /reset-password)
+// Forgot Password Route
+// POST /api/v1/auth/forgot-password
+router.post('/forgot-password', handleRequestPasswordReset);
+
+// Reset Password Route
+// POST /api/v1/auth/reset-password
+router.post('/reset-password', handleResetPassword);
+
+// TODO: Add other routes later (/refresh-token, /reset-password)
 
 export default router;

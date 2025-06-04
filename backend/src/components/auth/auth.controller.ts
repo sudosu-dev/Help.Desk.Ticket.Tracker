@@ -5,6 +5,7 @@ import {
   UserLoginData,
   LoginSuccessResponse,
   RegisteredUser,
+  ResetPasswordData,
 } from './auth.service';
 import { nextTick } from 'process';
 
@@ -166,7 +167,7 @@ export const handleUserLogin: RequestHandler = async (
   }
 };
 
-// --- PASSWORD RESET ----
+// --- REQUEST PASSWORD RESET ----
 
 /**
  * Handles a request to initiate a password reset.
@@ -202,28 +203,93 @@ export const handleRequestPasswordReset: RequestHandler = async (
     }
 
     // Send a generic success message to the client
-    res
-      .status(200)
-      .json({
-        message:
-          'If an account with that email exists, a password reset link has been sent.',
-      });
+    res.status(200).json({
+      message:
+        'If an account with that email exists, a password reset link has been sent.',
+    });
   } catch (error) {
     console.error('[AuthController - RequestReset] Error:', error);
     if (error instanceof Error) {
+      res.status(500).json({
+        message:
+          error.message ||
+          'Failed to process password reset request due to an internal server error.',
+      });
+    } else {
+      res.status(500).json({
+        message:
+          'An unexpected error occurred while processing the password reset request.',
+      });
+    }
+    return;
+  }
+};
+
+// ---- PASSWORD RESET ----
+
+/**
+ * Handles a request to reset a user's password using a provided token.
+ * Takes a token and a new password from the request body.
+ */
+export const handleResetPassword: RequestHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { token, newPassword }: { token?: string; newPassword?: string } =
+      req.body;
+
+    // 1. Basic Validation
+    if (!token || !newPassword) {
+      res.status(400).json({ message: 'Token and new password are required.' });
+      return;
+    }
+
+    // Add password strength validation for newPassword (similar to registration)
+    if (newPassword.length < 8) {
       res
-        .status(500)
-        .json({
-          message:
-            error.message ||
-            'Failed to process password reset request due to an internal server error.',
-        });
+        .status(400)
+        .json({ message: 'New password must be at least 8 characters long.' });
+      return;
+    }
+    // Add more password complexity rules?
+
+    const resetData: ResetPasswordData = {
+      token,
+      newPassword_plaintext: newPassword,
+    };
+
+    // 2. Call the service to reset the password
+    await authService.resetPassword(resetData);
+
+    // 3. Send success response
+    res.status(200).json({ message: 'Password has been reset successfully.' });
+  } catch (error) {
+    // In V2, consider using next(error)
+    if (error instanceof Error) {
+      console.error('[AuthController-ResetPassword] Error:', error.message);
+      if (error.message === 'Invalid or expired password reset token.') {
+        res.status(400).json({ message: error.message }); // 400 or 401 could be used
+      } else if (error.message === 'Failed to update password.') {
+        // This could be a server error or a case where the user_id from token was invalid
+        res
+          .status(500)
+          .json({
+            message: 'Failed to update password due to a server issue.',
+          });
+      } else {
+        res
+          .status(500)
+          .json({
+            message: 'Password reset failed due to an internal server error.',
+          });
+      }
     } else {
       res
         .status(500)
         .json({
-          message:
-            'An unexpected error occurred while processing the password reset request.',
+          message: 'An unexpected error occurred during password reset.',
         });
     }
     return;
