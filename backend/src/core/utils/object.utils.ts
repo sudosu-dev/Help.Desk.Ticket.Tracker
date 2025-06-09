@@ -1,0 +1,33 @@
+// backend/src/core/utils/object.utils.ts
+
+/**
+ * Converts a single string from snake_case to camelCase.
+ * @param {string} str The string to convert.
+ * @returns {string} The camelCased string.
+ */
+const toCamel = (str: string): string => {
+  return str.replace(/([-_][a-z])/gi, $1 => {
+    return $1.toUpperCase().replace('-', '').replace('_', '');
+  });
+};
+
+/**
+ * Converts all keys of an object from snake_case to camelCase.
+ * This is useful for translating data from the database to the application layer.
+ * @param {object} obj The object to convert.
+ * @returns {object} A new object with camelCased keys.
+ */
+export const toCamelCase = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(v => toCamelCase(v));
+  } else if (obj !== null && obj.constructor === Object) {
+    return Object.keys(obj).reduce(
+      (result, key) => ({
+        ...result,
+        [toCamel(key)]: toCamelCase(obj[key]),
+      }),
+      {}
+    );
+  }
+  return obj;
+};

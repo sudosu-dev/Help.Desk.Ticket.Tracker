@@ -1,48 +1,18 @@
+// In: backend/src/components/auth/auth.service.ts
+
 import pool from '../../core/db';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { getJwtExpiresInSeconds } from '../../core/utils/jwt.utils';
 import crypto from 'crypto';
-// Interface for the data expected for user registration
-export interface UserRegistrationData {
-  username: string;
-  email: string;
-  password_plaintext: string;
-  first_name: string;
-  last_name: string;
-  phone_number: string;
-}
-
-// Interface for the user data returned (excluding password)
-export interface RegisteredUser {
-  user_id: number;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  phone_number: string;
-  role_id: number;
-  is_active: boolean;
-  created_at: Date;
-  updated_at: Date;
-}
-
-// Interface for the data expected for user login
-export interface UserLoginData {
-  emailOrUsername: string;
-  password_plaintext: string;
-}
-
-// Interface for the login response
-export interface LoginSuccessResponse {
-  token: string;
-  user: {
-    user_id: number;
-    username: string;
-    email: string;
-    role_id: number;
-  };
-}
+import { RegisteredUser } from '../../core/types/types';
+import { toCamelCase } from '../../core/utils/object.utils';
+import {
+  UserRegistrationData,
+  UserLoginData,
+  LoginSuccessResponse,
+  ResetPasswordData,
+} from './auth.types';
+import { getJwtExpiresInSeconds } from '../../core/utils/jwt.utils';
 
 // ---- LOGIN ----
 
@@ -52,29 +22,30 @@ export const loginUser = async (
   const { emailOrUsername, password_plaintext } = loginData;
 
   // Normalize emailOrUsername
-  const NormalizedEmailOrUsername = emailOrUsername.trim().toLocaleLowerCase();
+  const normalizedEmailOrUsername = emailOrUsername.trim().toLowerCase();
 
   // Find the user by email or username
   const userQueryResult = await pool.query(
     'SELECT user_id, username, email, role_id, password_hash, is_active FROM users WHERE email = $1 OR username = $1',
-    [NormalizedEmailOrUsername]
+    [normalizedEmailOrUsername]
   );
 
   if (userQueryResult.rows.length === 0) {
     throw new Error('Invalid email/username or password.');
   }
 
-  const user = userQueryResult.rows[0];
+  // Convert the snake_case result from the DB to a camelCase object
+  const user = toCamelCase(userQueryResult.rows[0]);
 
   // Check if user is active
-  if (!user.is_active) {
+  if (!user.isActive) {
     throw new Error('Account is inactive. Please contact support.');
   }
 
   // Compare the provided password with the stored hash
   const passwordMatches = await bcrypt.compare(
     password_plaintext,
-    user.password_hash
+    user.passwordHash
   );
 
   if (!passwordMatches) {
@@ -90,23 +61,24 @@ export const loginUser = async (
   }
 
   const payload = {
-    userId: user.user_id,
-    roleId: user.role_id,
+    userId: user.userId,
+    roleId: user.roleId,
   };
 
+  // Using your robust utility function to fix the TypeScript error
   const expiresInSeconds = getJwtExpiresInSeconds();
 
-  const token = jwt.sign(payload, jwtSecret!, {
+  const token = jwt.sign(payload, jwtSecret, {
     expiresIn: expiresInSeconds,
   });
 
   return {
     token,
     user: {
-      user_id: user.user_id,
+      userId: user.userId,
       username: user.username,
       email: user.email,
-      role_id: user.role_id,
+      roleId: user.roleId,
     },
   };
 };
@@ -120,14 +92,14 @@ export const registerNewUser = async (
     username,
     email,
     password_plaintext,
-    first_name,
-    last_name,
-    phone_number,
+    firstName,
+    lastName,
+    phoneNumber,
   } = userData;
 
   // Normalize username and email
-  const normalizedUsername = username.trim().toLocaleLowerCase();
-  const normalizedEmail = email.trim().toLocaleLowerCase();
+  const normalizedUsername = username.trim().toLowerCase();
+  const normalizedEmail = email.trim().toLowerCase();
 
   // Check if user already exists
   const existingUserResult = await pool.query(
@@ -148,15 +120,15 @@ export const registerNewUser = async (
   const insertQuery = `
         INSERT INTO users (username, email, password_hash, first_name, last_name, phone_number)
         VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING user_id, username, email, first_name, last_name, phone_number, role_id, is_active, created_at, updated_at;
+        RETURNING *;
     `;
   const values = [
     normalizedUsername,
     normalizedEmail,
     password_hash,
-    first_name,
-    last_name,
-    phone_number,
+    firstName,
+    lastName,
+    phoneNumber,
   ];
 
   try {
@@ -165,7 +137,8 @@ export const registerNewUser = async (
       // This should not happen if the insert was successful and returning was used
       throw new Error('User registration failed, user not created.');
     }
-    return newUserResult.rows[0] as RegisteredUser;
+    // Convert the returned DB object to camelCase to match the RegisteredUser interface
+    return toCamelCase(newUserResult.rows[0]) as RegisteredUser;
   } catch (error) {
     console.error('Error during registration:', error);
     throw new Error('Could not register user due to a database error.');
@@ -194,7 +167,6 @@ export const logoutUser = async (): Promise<{ message: string }> => {
  * @param email The email address of the user requesting the password reset.
  * @returns Promise<string | null> The plaintext reset token if a user was found, otherwise null.
  */
-
 export const requestPasswordReset = async (
   email: string
 ): Promise<string | null> => {
@@ -205,7 +177,9 @@ export const requestPasswordReset = async (
   );
 
   if (userQueryResult.rows.length === 0) {
-    console.log`[AuthService-RequestReset] No active user found for email: ${email}`;
+    console.log(
+      `[AuthService-RequestReset] No active user found for email: ${email}`
+    );
     return null;
   }
 
@@ -250,13 +224,6 @@ export const requestPasswordReset = async (
   }
 };
 
-// --- PASSWORD RESET ---
-
-export interface ResetPasswordData {
-  token: string;
-  newPassword_plaintext: string;
-}
-
 /**
  * Resets a user's password using a valid reset token.
  * @param resetData Contains the plaintext token and the new password.
@@ -266,12 +233,12 @@ export interface ResetPasswordData {
 export const resetPassword = async (
   resetData: ResetPasswordData
 ): Promise<void> => {
-  const { token: plaintextToken, newPassword_plaintext } = resetData;
+  const { token, newPassword_plaintext } = resetData;
 
   // Hash the incoming plaintext token to compare with the database
   const incomingTokenHash = crypto
     .createHash('sha256')
-    .update(plaintextToken)
+    .update(token)
     .digest('hex');
 
   // Find the token in the database and verify it's not expired
