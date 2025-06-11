@@ -10,14 +10,10 @@ import apiRouterV1 from './api';
 
 const app: Application = express();
 
-// Core middleware
-// Enable CORS - Cross-Origin Resource Sharing
 app.use(cors());
 
-// Middleware to parse JSON bodies
 app.use(express.json());
 
-// Middleware to parse URL-encoded bodies
 app.use(express.urlencoded({ extended: true }));
 
 // Simple Root Route for testing
@@ -36,13 +32,10 @@ app.use('/api/v1', apiRouterV1);
 
 // --- Global Error-Handling Middleware ---
 
-// We define our handler as a constant with the explicit ErrorRequestHandler type.
 const globalErrorHandler: ErrorRequestHandler = (error, req, res, next) => {
   console.error('[GlobalErrorHandler]:', error);
 
-  // Check for specific JSON parsing errors from express.json()
   if (error instanceof SyntaxError && 'body' in error) {
-    // Send the response, then use a bare 'return' to exit the function.
     res.status(400).json({
       error: 'Invalid Request Body',
       message: 'Malformed JSON in request body.',
@@ -50,15 +43,12 @@ const globalErrorHandler: ErrorRequestHandler = (error, req, res, next) => {
     return;
   }
 
-  // Generic fallback for other unexpected errors
   res.status(500).json({
     error: 'Internal Server Error',
     message: 'An unexpected error occurred.',
   });
 };
 
-// This MUST be the last middleware added to the app.
 app.use(globalErrorHandler);
 
-// ------------------------------------
 export default app;
