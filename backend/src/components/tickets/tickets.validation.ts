@@ -35,6 +35,18 @@ const createTicketBodySchema = z.object({
   category: z.enum(categoryValues).optional(),
 });
 
+/**
+ * Validates that the ticketId route parameter is a positive integer.
+ */
+export const getTicketByIdSchema = z.object({
+  params: z.object({
+    ticketId: z.coerce
+      .number({ invalid_type_error: 'Ticket ID must be a number.' })
+      .int()
+      .positive('Ticket ID must be a positive integer.'),
+  }),
+});
+
 export const createTicketSchema = z.object({
   body: createTicketBodySchema,
 });
