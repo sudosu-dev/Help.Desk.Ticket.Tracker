@@ -2,7 +2,7 @@
 
 import { Request, Response } from 'express';
 import * as ticketService from './tickets.service';
-import { CreateTicketInput } from './tickets.validation';
+import { CreateTicketInput, UpdateTicketInput } from './tickets.validation';
 import { CreateTicketServiceData } from './tickets.types';
 import { error } from 'console';
 
@@ -47,11 +47,18 @@ export const handleGetAllTickets = async (
   res: Response
 ): Promise<void> => {
   try {
-    const tickets = await ticketService.getAllTickets();
+    const user = req.user;
+
+    if (!user) {
+      res.status(401).json({ message: 'User not authenticated.' });
+      return;
+    }
+
+    const tickets = await ticketService.getAllTickets(user);
     res.status(200).json(tickets);
   } catch (error) {
-    console.error('[TicketController] Failed to get tickets.');
-    res.status(500).json({ message: 'Internal server error.' });
+    console.error('[TicketController] Failed to get tickets:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
   }
 };
 
@@ -77,6 +84,64 @@ export const handleGetTicketById = async (
     res.status(200).json(ticket);
   } catch (error) {
     console.error(`[TicketController] Failed to get ticket by ID:`, error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+};
+
+/**
+ * Handles the request to update a ticket by its ID.
+ */
+export const handleUpdateTicketById = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const ticketId = Number(req.params.ticketId);
+    const updateData = req.body;
+
+    const updatedTicket = await ticketService.updateTicketById(
+      ticketId,
+      updateData
+    );
+
+    if (!updatedTicket) {
+      res
+        .status(404)
+        .json({ message: `Ticket with ID ${ticketId} not found.` });
+      return;
+    }
+
+    res.status(200).json(updatedTicket);
+  } catch (error) {
+    console.error('[TicketController] Failed to update ticket:', error);
+    res.status(500).json({ message: 'Internal service error.' });
+  }
+};
+
+/**
+ * Handles the HTTP request to delete a ticket by its ID.
+ */
+export const handleDeleteTicketById = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const ticketId = Number(req.params.ticketId);
+
+    const deletedRowCount = await ticketService.deleteTicketById(ticketId);
+
+    // If the service returns 0, no rows were deleted, so the ticket was not found.
+    if (deletedRowCount === 0) {
+      res
+        .status(404)
+        .json({ message: `Ticket with ID ${ticketId} not found.` });
+      return;
+    }
+
+    // A 204 No Content response is the standard for a successful DELETE action.
+    res.status(204).send();
+  } catch (error) {
+    console.error(`[TicketController] Failed to delete ticket:`, error);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 };

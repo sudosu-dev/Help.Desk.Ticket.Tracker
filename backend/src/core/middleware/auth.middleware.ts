@@ -37,6 +37,7 @@ export const authenticateToken = (
 
   // Verify JWT_SECRET is configured on the server
   const jwtSecret = process.env.JWT_SECRET;
+
   if (!jwtSecret) {
     console.error(
       '[AuthMiddleware] Server configuration error: JWT_SECRET is not defined.'

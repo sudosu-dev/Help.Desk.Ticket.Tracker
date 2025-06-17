@@ -7,6 +7,7 @@ import {
   Ticket,
   TicketListView,
 } from './tickets.types';
+import { UpdateTicketInput } from './tickets.validation';
 
 /**
  * Creates a new ticket record in the database.
@@ -45,31 +46,43 @@ export async function createTicket(
 }
 
 /**
- * Retrieves a list of tickets for a summary view.
+ * Retrieves a list of tickets based on the users role.
+ * @param user The authenticated user object, containing userId and roleId.
  */
-export async function getAllTickets(): Promise<TicketListView[]> {
-  // This query joins with the user table twice to get full names.
-  const query = `
+export async function getAllTickets(user: {
+  userId: number;
+  roleId: number;
+}): Promise<TicketListView[]> {
+  const baseQuery = `
     SELECT
-        t.ticket_id,
-        t.subject,
-        t.status,
-        t.priority,
-        t.updated_at,
-        CONCAT(r.first_name, ' ', r.last_name) AS requester_name,
-        CONCAT(a.first_name, ' ', a.last_name) AS assignee_name
-    FROM 
-        tickets t
+      t.ticket_id,
+      t.subject,
+      t.status,
+      t.priority,
+      t.updated_at,
+      CONCAT(r.first_name, ' ', r.last_name) AS requester_name,
+      CONCAT(a.first_name, ' ', a.last_name) AS assignee_name
+    FROM
+      tickets t
     JOIN
-        users r ON t.requester_user_id = r.user_id
+      users r ON t.requester_user_id = r.user_id
     LEFT JOIN
-        users a ON assignee_user_id = a.user_id
-    ORDER BY
-        t.updated_at DESC;
-    `;
+      users a ON t.assignee_user_id = a.user_id
+  `;
+
+  const values: any[] = [];
+  let finalQuery = baseQuery;
+
+  // Check if it's a user making the request (role 2 is user)
+  if (user.roleId === 2) {
+    finalQuery += ` WHERE t.requester_user_id = $1`;
+    values.push(user.userId);
+  }
+
+  finalQuery += ` ORDER BY t.updated_at DESC;`;
 
   try {
-    const result = await pool.query(query);
+    const result = await pool.query(finalQuery, values);
     return toCamelCase(result.rows) as TicketListView[];
   } catch (error) {
     console.error('Error fetching tickets:', error);
@@ -99,5 +112,89 @@ export async function getTicketById(ticketId: number): Promise<Ticket | null> {
   } catch (error) {
     console.error(`Error fetching ticket with ID ${ticketId}:`, error);
     throw new Error('Could not retrieve ticket.');
+  }
+}
+
+/**
+ * Updates a ticket using a dynamic query based on the provided fields.
+ * @param ticketId The ID of the ticket to update.
+ * @param updates An object containing the fields to update.
+ * @returns The updated ticket object, or null if not found.
+ */
+export async function updateTicketById(
+  ticketId: number,
+  updates: UpdateTicketInput
+): Promise<Ticket | null> {
+  // Whitelist
+  const allowedUpdateFields = [
+    'subject',
+    'description',
+    'assigneeUserId',
+    'status',
+    'priority',
+    'category',
+    'dueDate',
+  ];
+
+  const mapToDbColumn = (key: string): string => {
+    const mapping: { [key: string]: string } = {
+      assigneeUserId: 'assignee_user_id',
+      dueDate: 'due_date',
+    };
+    return mapping[key] || key;
+  };
+
+  const fields: string[] = [];
+  const values: any[] = [];
+  let queryIndex = 1;
+
+  for (const key in updates) {
+    if (Object.prototype.hasOwnProperty.call(updates, key)) {
+      if (allowedUpdateFields.includes(key)) {
+        const value = (updates as any)[key];
+        const dbColumn = mapToDbColumn(key);
+        fields.push(`${dbColumn} = $${queryIndex++}`);
+        values.push(value);
+      }
+    }
+  }
+
+  values.push(ticketId);
+
+  const query = `
+    UPDATE tickets
+    SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+    WHERE ticket_id = $${queryIndex}
+    RETURNING *;
+  `;
+
+  try {
+    const result = await pool.query(query, values);
+    if (result.rowCount === 0) {
+      return null;
+    }
+    return toCamelCase(result.rows[0]) as Ticket;
+  } catch (error) {
+    console.error(`Error updating ticket with ID ${ticketId}:`, error);
+    throw new Error('Could not update ticket.');
+  }
+}
+
+/**
+ * Deletes a ticket by its ID.
+ * @param ticketId The ID of the ticket to delete.
+ * @returns The number of rows affected (0 if not found, 1 if deleted).
+ */
+export async function deleteTicketById(ticketId: number): Promise<number> {
+  const query = `
+    DELETE FROM tickets WHERE ticket_id = $1
+  `;
+
+  try {
+    const result = await pool.query(query, [ticketId]);
+    return result.rowCount ?? 0;
+  } catch (error) {
+    console.error(`Error deleting ticket with ID ${ticketId}:`, error);
+    throw new Error('Could not delete ticket.');
   }
 }

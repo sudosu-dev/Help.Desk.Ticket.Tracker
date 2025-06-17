@@ -13,7 +13,6 @@ const toCamel = (str: string): string => {
 
 /**
  * Converts all keys of an object from snake_case to camelCase.
- * This is useful for translating data from the database to the application layer.
  * @param {object} obj The object to convert.
  * @returns {object} A new object with camelCased keys.
  */

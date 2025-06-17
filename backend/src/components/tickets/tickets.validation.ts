@@ -1,7 +1,7 @@
 // backend/src/components/tickets/tickets.validation.ts
 
 import { z } from 'zod';
-import { TicketPriority, TicketCategory } from './tickets.types';
+import { TicketPriority, TicketCategory, TicketStatus } from './tickets.types';
 
 const priorityValues: [TicketPriority, ...TicketPriority[]] = [
   'Low',
@@ -21,6 +21,14 @@ const categoryValues: [TicketCategory, ...TicketCategory[]] = [
   'General IT Support',
 ];
 
+const statusValues: [TicketStatus, ...TicketStatus[]] = [
+  'Open',
+  'In Progress',
+  'Pending Customer',
+  'Resolved',
+  'Closed',
+];
+
 const createTicketBodySchema = z.object({
   subject: z
     .string({ required_error: 'Subject is required.' })
@@ -35,6 +43,20 @@ const createTicketBodySchema = z.object({
   category: z.enum(categoryValues).optional(),
 });
 
+const updateTicketBodySchema = z.object({
+  subject: z.string().trim().min(3).max(255).optional(),
+  description: z.string().trim().min(1).optional(),
+  assigneeUserId: z.number().int().positive().nullable().optional(),
+  status: z.enum(statusValues).optional(),
+  priority: z.enum(priorityValues).optional(),
+  category: z.enum(categoryValues).optional(),
+  dueDate: z.coerce.date().nullable().optional(),
+});
+
+export const createTicketSchema = z.object({
+  body: createTicketBodySchema,
+});
+
 /**
  * Validates that the ticketId route parameter is a positive integer.
  */
@@ -47,8 +69,15 @@ export const getTicketByIdSchema = z.object({
   }),
 });
 
-export const createTicketSchema = z.object({
-  body: createTicketBodySchema,
+/**
+ * Validates the request for updating a ticket.
+ */
+export const updateTicketSchema = z.object({
+  params: getTicketByIdSchema.shape.params,
+  body: updateTicketBodySchema.refine(data => Object.keys(data).length > 0, {
+    message: 'Update body cannot be empty.',
+  }),
 });
 
 export type CreateTicketInput = z.infer<typeof createTicketBodySchema>;
+export type UpdateTicketInput = z.infer<typeof updateTicketBodySchema>;
